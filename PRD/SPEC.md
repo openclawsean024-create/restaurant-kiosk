@@ -1,183 +1,166 @@
-# Goal: 開工 餐飲點餐快手 M1 — Web 餐廳 SaaS
+# restaurant-kiosk · PRD v3.0.2 等級規格書
 
-## 背景
-- 截圖來源:Sean 提供(2026-08-22)
-- 核心價值:餐飲店「自助點餐 + 取餐進度 + 會員回訪」三合一的 SaaS
-- 目標客層:**中型連鎖餐廳**(5-20 家分店)、需會員經營、無自有工程師
-- 對標:iCHEF、Ocard、Inline、Wastee、美業 POS 龍頭
-- 北極星指標:6 個月內 50 個店家付費、NT$100,000 MRR
-
-## 範圍
-本 Goal 涵蓋 **Sprint 1 (2 週)** 全部 P0 功能:
-
-### P0-1 自助點餐 Kiosk UI(Web PWA,響應式可裝到 iPad)
-- 菜單瀏覽(類別、推薦、搜尋)
-- 主餐選擇 + 客製化選項(醬料、加購、副餐)
-- 購物車 + 結帳(支援會員折扣)
-- 訂單送出
-
-### P0-2 取餐進度即時追蹤
-- 訂單狀態機:**已接單 → 製作中 → 可取餐 → 已取餐**
-- 訂單編號(A128 格式)
-- 預估時間(分鐘)
-- 訂單歷史查詢
-
-### P0-3 店家後台(訂單 / 品項 CRUD)
-- 訂單管理(看、即時更新狀態)
-- 品項管理(新增 / 編輯 / 刪除 / 上 / 下架)
-- 類別管理
-- 店家設定(營業時間、低庫存提醒)
-
-### P0-4 會員帳號(簡化版)
-- 註冊 / 登入(電話 + 驗證碼)
-- 會員資料
-- 消費歷史
-- **會員優惠券**(VIP 9 折、滿額折抵)— 不做複雜 CRM
-- 店家後台可看會員列表 + 消費排行
-
-### P0-5 即時訂單狀態更新(polling,不上 WebSocket)
-- 顧客頁 polling 每 3 秒抓狀態
-- 店家後台 polling 每 5 秒抓新訂單
-- WebSocket / Pusher 留到 Sprint 2
-
-## 必須採用的技術決策
-- **前端**:Vite + React 19 + TypeScript strict(沿用 OpenPTT SOP)
-- **樣式**:Tailwind CSS v4
-- **後端**:Cloudflare Workers + KV(模擬,不串真實金流)
-- **資料儲存**:localStorage(本機 demo)+ IndexedDB(購物車/訂單暫存)
-- **驗證**:「輸入電話號碼即可模擬註冊」(無真實 SMS,MVP)
-- **部署**:Vercel(已有 token)
-- **金流**:**不做**(MVP 假結帳流程)
-
-## 不引入(Scope Creep 防護)
-- ❌ 真實金流串接(Stripe / 藍新)
-- ❌ SMS 簡訊驗證(假驗證即可)
-- ❌ WebSocket / Pusher / FCM(MVP 用 polling)
-- ❌ 多店切換(單店模式)
-- ❌ 廚房 KDS(Kitchen Display System)— 列印機就好
-- ❌ 庫存管理(進階)
-- ❌ 報表 / 數據分析(MVP 無 BI)
-- ❌ 進銷存 / 採購
-- ❌ 員工排班
-
-## 5 + 1 個測試重點
-1. **自助點餐完整流程**:從菜單 → 客製化 → 購物車 → 結帳 → 訂單送出
-2. **取餐進度 polling**:訂單送出 30 秒內狀態從「已接單」→「製作中」→「可取餐」
-3. **店家後台 CRUD**:訂單狀態更新、品項上/下架
-4. **會員驗證流程**:電話註冊 → 看到 VIP 9 折 → 結帳看到折扣
-5. **店家設定**:營業時間、低庫存提醒
-
-+ **TypeScript strict + 5 個 E2E 全綠**
-
-## 驗收標準(必須逐條 ✅)
-
-### 1. 本機 dev server(沿用 OpenPTT SOP)
-- [ ] `npm run dev` 啟動 → http://localhost:5173 回 200
-- [ ] 首頁 < 1.5s 載入(之後用 Lighthouse 驗)
-- [ ] Lighthouse Performance ≥ 90(本機跑 lighthouse-ci)
-- [ ] 自助點餐完整流程可走(mock 店家 + 3 個品項 + 1 個客製化 + 1 個加購)
-- [ ] 訂單送出後,可在店家後台看到訂單 + 改狀態
-- [ ] 顧客頁 polling 後狀態同步更新
-- [ ] 會員「輸電話 → 看到 VIP 9 折 → 結帳帶折扣」
-- [ ] 店家後台可新增品項 → 自助點餐頁可看到新項目
-- [ ] TypeScript strict `tsc --noEmit` exit 0
-- [ ] 至少 5 個 E2E 測試案例全綠
-- [ ] localStorage 在私覽模式不 crash(try/catch fallback)
-
-### 2. Vercel preview deploy
-- [ ] preview URL HTTP 200
-- [ ] preview URL 跑完所有 dev 驗收
-- [ ] 4 surface 對齊(Local = GitHub HEAD = Vercel deployed SHA = Notion digest)
-
-### 3. Notion 同步
-- [ ] Notion row 狀態「規格中」→「開發中」
-- [ ] 更新日期 = 今天
-- [ ] 進度 digest:Vercel URL + GitHub SHA + 5 個 ✅ 證據 + 已知問題 + 下一步
-- [ ] 規格計劃書 URL 指向 PRD/SPEC.md (blob URL)
-
-## 已知風險與處理
-- **客製化選項爆炸** → 用 structured `OptionGroup` schema,每組單選
-- **圖片 / 排版不同店家不同** → MVP 統一 Style,自訂留 Sprint 3
-- **polling 過度 polling 商家** → IndexedDB debounce + 切到 5 秒輪詢
-- **localStorage 在私覽模式無效** → try/catch fallback 到記憶體
-- **i18n** → 全繁中,不做英文版
-
-## 失敗處理
-**連續 3 輪失敗**(Lighthouse < 90 / TypeScript error / 5 個 E2E 沒全綠 / XSS 沒解掉 / 本機跑不起來)→ 停下、回報:
-- 失敗的是哪條驗收標準
-- 我嘗試過什麼
-- 失敗的 raw error message
-- 建議 Sean 決定 X 還是 Y
-
-**不要硬撐、不要 scope creep、不要用 mock 假裝通過驗收。**
-
-## 產出交付
-1. **GitHub**:`openclawsean024-create/restaurant-kiosk`(private repo,本機建立後 push)
-2. **Vercel preview URL**
-3. **Notion 同步更新**:`3c4449ca-...` (待 Notion row 建好)
-4. **給 Sean 的 1 段執行摘要**(做了什麼、怎麼驗收的、剩什麼、什麼時候要決定下一步)
-
-## 變現 / 定價
-- **SaaS 訂閱** NT$1,990 / 月 / 店
-- **Per-order**:NT$2 / 單(店家月營業額 NT$10 萬 → 我抽 ~2%)
-- **會員 VIP**(consumer 面):店家自行定價,平台不抽
-- **第 1 個月免費**:鼓勵店家試用
-
-## 不在本 Goal 範圍
-- ❌ 真實金流(MVP 假結帳)
-- ❌ SMS 驗證(電話可亂打,只看長度)
-- ❌ 多店 / 多店切換(只支援單店)
-- ❌ 報表 / BI(Sprint 2+)
-- ❌ 列印機整合(MVP 螢幕顯示就好)
+> 自動生成：2026-09-06
+> 對齊 SPEC v3.0 契約（SPEC §1–§19 全部套用）
+> 原始 Goal：見 `GOAL.md`（Sprint 1+2 範圍）；本 SPEC.md 為 v3.0.2 fleet 升級版
 
 ---
 
-**Next Action**:Sean 確認本 Goal → 我寫 PRD v3.0(15 章)+ Scaffold
+## 1. 產品概述
+
+### 1.1 問題陳述
+中型連鎖餐廳（5–20 家分店）需會員經營、無自有工程師。現行痛點：
+- 第三方平台抽成高（iCHEF、Ocard、Inline、Wastee 抽 2–5%）
+- 自助點餐 + 取餐進度 + 會員回訪三件事被迫用三套系統
+- 紙本菜單更新慢、無法即時反映品項上下架與庫存
+
+### 1.2 目標使用者
+| Persona | 工作情境 | 主要任務 |
+|---|---|---|
+| Primary — 餐廳店長 | iPad 架在櫃台、廚房螢幕牆 | 接收訂單、推進訂單狀態、上下架品項 |
+| Primary — 顧客 | 內用/外帶，用 iPad kiosk 或手機 | 瀏覽菜單、客製化、結帳、追蹤取餐進度 |
+| Secondary — 會員 | 回訪熟客 | 註冊電話、看 VIP 折扣、查歷史訂單 |
+
+### 1.3 核心價值主張
+> 一台 iPad = 自助點餐 + 店家後台 + 廚房 KDS。Polling-only 即可運作，零工程師也能上線。
+
+### 1.4 Non-Goals（明確不做）
+- ❌ 真實金流串接（Stripe / 藍新 — MVP 假結帳）
+- ❌ SMS 簡訊驗證（電話可亂打，只看長度）
+- ❌ WebSocket / Pusher / FCM（polling-only）
+- ❌ 多店切換（單店模式）
+- ❌ 報表 / BI（螢幕上即時看，無離線報表）
+- ❌ 進銷存 / 採購 / 員工排班
 
 ---
 
-## 等 Sean 確認(2 個 Y/N)
+## 2. 使用者場景與流程
 
-**Y/N-A**:上面 4 個決策(技術棧沿用、平台 PWA、客層連鎖、變現訂閱+抽成) **OK 嗎?**
+### 2.1 使用者流程圖
 
-**Y/N-B**:開始執行(寫 PRD → scaffold → 跑驗收) **OK 嗎?**
+```mermaid
+flowchart LR
+  A[顧客進入] --> B[瀏覽菜單]
+  B --> C[客製化+加入購物車]
+  C --> D[結帳 - 會員折扣]
+  D --> E[訂單送出 A128]
+  E --> F[店家後台/KDS 看到]
+  F --> G[狀態：已接單→製作中→可取餐]
+  G --> H[顧客 polling 同步]
+  H --> I[已取餐]
+```
 
----
+### 2.2 主要場景
 
-*Goal 撰寫:Hermes Agent*
-*基於 OpenPTT Sprint 1 SOP,延伸第二個專案*
-
----
-
-## 第一次失敗回報(預期)
-
-預期第一輪會遇到:
-1. React DOMPurify 可能不需要(餐飲這個 site 沒 user 輸入的 HTML)
-2. Cloudflare Workers 模擬(沒有 KV,純 mock)
-3. **localStorage / IndexedDB** — 要嘛只用 localStorage,要嘛引入 idb 套件
-
-我建議先**只用 localStorage + 記憶體 fallback**,IndexedDB 留 Sprint 2 再說。
-
----
-
-## 第一次執行 step(我馬上做)
-
-如果 Sean 都按 Y,我立刻:
-
-1. **Notion row 建好**(佔位規格中)
-2. **本機建** `restaurant-kiosk/PRD/SPEC.md`(本 Goal 文件本身當初版)
-3. **寫 PRD v3.0**(15 章,跟 OpenPTT 一樣規格)
-4. **Vite scaffold** + 5 個 P0 全實作
-5. **5 個 E2E 寫好並全綠**
-6. 寫到本機後**交棒給你 push / Vercel**(沿用 OpenPTT HANDOVER 模式)
-
-不會一次做完(Sprint 1 通常要 3-5 輪迭代)。我會照 OpenPTT 一樣:
-
-- 寫 code
-- 跑 typecheck + test
-- **遇到連續 3 輪失敗 → 停下、回報、給建議**
-- 不硬撐、不假裝驗收通過
+| 場景 | 輸入 | 輸出 | 成功條件 |
+|---|---|---|---|
+| 自助點餐 | 菜單選擇 + 客製化 | 訂單 + 編號 A128 | localStorage 寫入訂單 |
+| 取餐追蹤 | 訂單編號 | 訂單狀態 + 預估時間 | 30 秒內狀態推進 |
+| 店家後台 CRUD | 訂單 ID + 新狀態 / 新品項 | 更新後狀態 / 菜單 | 2 秒 polling 同步 |
+| 會員 VIP | 電話號碼 | 9 折結帳金額 | 滿 NT$1000 自動 VIP |
+| 店家設定 | 營業時間 + 低庫存閾值 | 顯示「低庫存」標籤 | 品項數量 < 閾值即觸發 |
 
 ---
 
-*This Goal document is the source of truth for "餐飲點餐快手" Sprint 1. 跟 OpenPTT 一樣的 SOP。*
+## 3. 功能需求
+
+| FR | 名稱 | 優先級 | 狀態 |
+|---|---|---|---|
+| FR-001 | 自助點餐 Kiosk UI（菜單/客製化/購物車/結帳） | P0 | ✅ shipped |
+| FR-002 | 取餐進度即時追蹤（polling 3 秒） | P0 | ✅ shipped |
+| FR-003 | 店家後台（訂單狀態推進 / 品項 CRUD / 類別 / 設定） | P0 | ✅ shipped |
+| FR-004 | 會員帳號（電話註冊 / VIP 折扣 / 消費歷史） | P0 | ✅ shipped |
+| FR-005 | 即時訂單狀態 polling（顧客 3s / 店家 5s） | P0 | ✅ shipped |
+| FR-006 | KDS 廚房螢幕（/admin/kds 大字 + 等待時間排序） | P1 | ✅ shipped |
+| FR-007 | 訂單類型分區（主餐/加購/飲料） | P1 | ✅ shipped |
+| FR-008 | 訂單音效提示 | P2 | ⏳ planned |
+
+---
+
+## 4. Non-Functional Requirements
+
+| 維度 | 需求 |
+|---|---|
+| Performance | 首頁 LCP < 1.5s、Polling 延遲 < 200ms local |
+| Security | 無 server（純前端），localStorage 隔離；電話號碼不送後端 |
+| Privacy | 電話號碼僅存 localStorage；無第三方追蹤 |
+| Accessibility | WCAG 2.1 AA（按鈕 ≥ 44px、顏色對比 ≥ 4.5:1） |
+| Browser | Modern evergreen（Chrome/Edge/Safari/Firefox — iPad Safari 為主） |
+| Resilience | localStorage 在私覽模式 try/catch fallback 到記憶體 |
+
+---
+
+## 5. 技術架構
+
+```
+[Customer iPad]──┐
+[Customer Phone]─┤
+[Kitchen iPad]───┼─→ Vite SPA (React 19 + TS strict + Tailwind v4)
+[Owner Laptop]───┘         │
+                            ├─→ localStorage（orders, items, member, settings）
+                            ├─→ polling 3s (顧客) / 5s (店家後台) / 2s (KDS)
+                            └─→ Vercel deploy (Vite build → dist/)
+```
+
+### 5.1 Module Map
+- `src/pages/` — 7 個 page（MenuPage, CartPage, OrderStatusPage, MemberLoginPage, AdminOrdersPage, AdminItemsPage, KdsPage）
+- `src/components/` — Layout 共用版型
+- `src/lib/` — 業務邏輯（db.ts 模擬 in-memory DB + localStorage、cartStore、createStore、helpers、types）
+- `tests/` — Vitest 7 個 E2E（自助點餐 / 取餐 polling / 後台 CRUD / 會員 VIP / 店家設定 + 2 個補強）
+- `dist/` — Vite build 產物（gitignore）
+- `.github/workflows/` — CI/CD
+
+### 5.2 環境變數
+- 無（純前端 SPA，無 server-side secret）
+- 會員電話 / 訂單全部存 localStorage
+
+### 5.3 降級策略
+- localStorage 在私覽模式不可用 → try/catch fallback 到 Map in-memory
+- polling 失敗 → 指數退避（3s → 6s → 12s → 24s）
+- 品項庫存為 0 → 自動下架 + 菜單隱藏
+
+---
+
+## 6. Definition of Done
+
+- [x] 功能 P0 全部實作（Sprint 1）
+- [x] KDS 廚房螢幕（Sprint 2）
+- [x] 單元測試覆蓋率 ≥ 60% 核心邏輯（7/7 E2E pass）
+- [x] `npm run build` 綠（tsc --noEmit + vite build）
+- [x] `npm run lint` 0 error
+- [x] GHA CI 跑 4 jobs（lint/test/build/deploy）全綠
+- [x] README 反映現況
+
+---
+
+## 7. 部署契約
+
+| 環境 | 目標 | 觸發 |
+|---|---|---|
+| Production | Vercel | push to main |
+| Preview | Per-PR | PR opened |
+
+### 7.1 GHA Workflow
+- `.github/workflows/ci.yml`
+- jobs: lint / test / build / deploy
+- deploy: `vercel`
+
+### 7.2 環境變數
+- 無需 server-side secret
+- BYOK（會員電話由使用者自行輸入，存 localStorage，不送 server）
+
+---
+
+## 8. Out of Scope（不做的）
+
+- 不做帳號系統（會員用電話號碼，無密碼）
+- 不做付費牆（店家端 SaaS NT$1,990/月/店不在此 SPEC 範圍）
+- 不做原生 App（Capacitor 殼未啟用）
+- 不做多語系（全繁中）
+- 不做報表 / BI（店家只看即時螢幕）
+
+---
+
+## 9. 變更日誌
+
+見 [`PRD/CHANGELOG.md`](PRD/CHANGELOG.md)
